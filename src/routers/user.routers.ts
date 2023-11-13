@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { User } from '../../types';
 import { Request, Response } from 'express';
+import CircuitBreaker from '../helpers/circuit-breaker.helper';
 
 const UserRouter = Router();
+const userCircuitBreaker = new CircuitBreaker('http://localhost:8000');
 
 let users: User[] = [
     { id: 1, name: 'Alice', age: 22 },
@@ -57,24 +59,35 @@ UserRouter.post('/create', (req: Request, res: Response) => {
     }
   });
 
-  UserRouter.post('/create-many', (req: Request, res: Response) => {
-    const baseName = 'User'; // Nome base para os usuários
-    const baseAge = 30; // Idade base para os usuários
+  UserRouter.post('/create-many', async (req: Request, res: Response) => {
+    try {
+      await userCircuitBreaker.call(); // Tenta executar a chamada através do Circuit Breaker
   
-    for (let i = 0; i < 10000; i++) {
-      const maxId = users.reduce((max, user) => (user.id && user.id > max) ? user.id : max, 0);
-      const newId = maxId + 1;
+      const baseName = 'User'; // Nome base para os usuários
+      const baseAge = 30; // Idade base para os usuários
   
-      const newUser: User = {
-        id: newId,
-        name: `${baseName} ${newId}`,
-        age: baseAge,
-      };
+      // Nota: este loop é extremamente grande e pode causar problemas de desempenho
+      for (let i = 0; i < 1000; i++) {
+        const maxId = users.reduce((max, user) => (user.id && user.id > max) ? user.id : max, 0);
+        const newId = maxId + 1;
+    
+        const newUser: User = {
+          id: newId,
+          name: `${baseName} ${newId}`,
+          age: baseAge,
+        };
+    
+        users.push(newUser);
+      }
   
-      users.push(newUser);
+      res.status(201).json({ message: '1000 users created', circuitBreakerState: userCircuitBreaker.state });
+    } catch (error) {
+      console.log(error);
+      res.status(503).json({
+        error: 'Service Unavailable',
+        circuitBreakerState: userCircuitBreaker.state
+      });
     }
-  
-    res.status(201).json({ message: '1000 users created' });
   });
 
   UserRouter.delete('/delete/:id', (req: Request, res: Response) => {

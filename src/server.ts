@@ -1,7 +1,5 @@
 import express, { Application, Request, Response } from 'express';
-import dotenv from 'dotenv';
 import UserRouter from './routers/user.routers';
-dotenv.config();
 
 const app: Application = express();
 app.use(express.json());
