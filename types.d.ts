@@ -3,3 +3,8 @@ export type User = {
     name: string;
     age: number;
 }
+
+export type UserData = {
+    nome: string;
+    idade: number;
+}
